@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+if [ -z "$1" ]; then
+    echo -e "USAGE: weather-ma-jig place\n \
+            Example: weather-ma-jig Boulder"
+    exit 1
+fi
+
+PLACE=$(echo $1 | sed 's/ /%20/')
+
+WOEID=$(curl -s "http://where.yahooapis.com/v1/places.q(${PLACE})?appid=yGv9NWHV34GQ4FyA6.COP1blzCbYjHD3IzLJhlmK.b.4YpCWqv.D6LxDUodHiNyDGg--" | grep -i woeid | sed 's/.*<woeid>\(.*\)<\/woeid>.*/\1/')
+
+if [ -z $WOEID ]; then
+    echo "$1 ain't no place I ever heard of…"
+    exit 2
+fi
+
+DOW=$(date +%a)
+TOM=$(date -v+1d +%a)
+TODAY=true
+WEATHER=$(curl -s "http://weather.yahooapis.com/forecastrss?u=f&w=${WOEID}")
+CITY=$(echo "${WEATHER}" | grep -m 1 -i '<title>Yahoo! Weather' | sed 's/.*<title>Yahoo! Weather - \([^"]*\)<\/title>.*/\1/')
+DOWLN=$(echo "${WEATHER}" | grep -m 1 -i "<yweather:forecast day=\"${DOW}\"")
+
+if [ -z "$DOWLN" ]; then
+    DOWLN=$(echo "${WEATHER}" | grep -m 1 -i "<yweather:forecast day=\"${TOM}\"")
+    TODAY=false
+fi
+
+FORECAST=$(echo "${DOWLN}" | sed -e "s/.*low=\"\(.*\)\" high=\"\(.*\)\" text=\"\([a-zA-Z ]*\)\" .*/\2ºF \1ºF \3/")
+
+IFS=' ' read -r HIGH LOW CONDITIONS < <(echo $FORECAST)
+
+if $TODAY; then
+    DATE=$(date +"%A, %B %d %Y")
+else
+    DATE=$(date -v+1d +"%A, %B %d %Y")
+fi
+
+shopt -s nocasematch
+echo -e "\n$DATE\nForecast for $CITY\n===========================\nHIGH: $HIGH\nLOW: $LOW"
+if [[ $CONDITIONS =~ "sunny" ]]; then
+    tput setaf 3
+    echo -e "☀  $CONDITIONS\n";
+elif [[ $CONDITIONS =~ "storm" ]]; then
+    tput setaf 4
+    echo -e "☂  $CONDITIONS\n";
+elif [[ $CONDITIONS =~ "cloudy" ]]; then
+    tput setaf 6
+    echo -e "☁  $CONDITIONS\n";
+else
+    echo -e "$CONDITIONS\n";
+fi
+tput sgr0
+
+exit 0
