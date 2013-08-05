@@ -6,9 +6,17 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
+# Put your app id here:
+APPID=""
+
+if [ -z $APPID ]; then
+    echo "get an app id from Yahoo! Here: https://developer.apps.yahoo.com/wsregapp/"
+    exit 1
+fi
+
 PLACE=$(echo $1 | sed 's/ /%20/')
 
-WOEID=$(curl -s "http://where.yahooapis.com/v1/places.q(${PLACE})?appid=yGv9NWHV34GQ4FyA6.COP1blzCbYjHD3IzLJhlmK.b.4YpCWqv.D6LxDUodHiNyDGg--" | grep -i woeid | sed 's/.*<woeid>\(.*\)<\/woeid>.*/\1/')
+WOEID=$(curl -s "http://where.yahooapis.com/v1/places.q(${PLACE})?appid=${APPID}" | grep -i woeid | sed 's/.*<woeid>\(.*\)<\/woeid>.*/\1/')
 
 if [ -z $WOEID ]; then
     echo "$1 ain't no place I ever heard of…"
