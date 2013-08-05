@@ -28,6 +28,8 @@ TOM=$(date -v+1d +%a)
 TODAY=true
 WEATHER=$(curl -s "http://weather.yahooapis.com/forecastrss?u=f&w=${WOEID}")
 CITY=$(echo "${WEATHER}" | grep -m 1 -i '<title>Yahoo! Weather' | sed 's/.*<title>Yahoo! Weather - \([^"]*\)<\/title>.*/\1/')
+CURTEMP=$(echo "${WEATHER}" | grep -m 1 -i '<yweather:condition' | sed -e 's/.*temp="\([0-9]*\)" .*/\1ºF/')
+
 DOWLN=$(echo "${WEATHER}" | grep -m 1 -i "<yweather:forecast day=\"${DOW}\"")
 
 if [ -z "$DOWLN" ]; then
@@ -46,7 +48,7 @@ else
 fi
 
 shopt -s nocasematch
-echo -e "\n$DATE\nForecast for $CITY\n===========================\nHIGH: $HIGH\nLOW: $LOW"
+echo -e "\n$DATE\nForecast for $CITY\n===========================\nCURRENTLY: $CURTEMP\nHIGH: $HIGH\nLOW: $LOW"
 if [[ $CONDITIONS =~ "sunny" ]]; then
     tput setaf 3
     echo -e "☀  $CONDITIONS\n";
