@@ -16,4 +16,9 @@ Instructions:
 
 Screenshot:
 ---
+
+Here's what this looks like running on a non-mac:
 <img src="20130804_p_weather.png" title="Weather-ma-jig at work" />
+
+Sweet Emoji on Mac!
+<img src="20130904_p_weather_on_darwin.png" title="Weather-ma-jig at work on OSX" />
