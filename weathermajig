@@ -24,7 +24,11 @@ if [ -z $WOEID ]; then
 fi
 
 DOW=$(date +%a)
-TOM=$(date -v+1d +%a)
+if [[ $(uname -s) == 'Darwin' ]]; then
+  TOM=$(date -v+1d +%a)
+else
+  TOM=$(date -d "+1 day" +%a)
+fi
 TODAY=true
 WEATHER=$(curl -s "http://weather.yahooapis.com/forecastrss?u=f&w=${WOEID}")
 CITY=$(echo "${WEATHER}" | grep -m 1 -i '<title>Yahoo! Weather' | sed 's/.*<title>Yahoo! Weather - \([^"]*\)<\/title>.*/\1/')
@@ -44,7 +48,11 @@ IFS=' ' read -r HIGH LOW CONDITIONS < <(echo $FORECAST)
 if $TODAY; then
     DATE=$(date +"%A, %B %d %Y")
 else
-    DATE=$(date -v+1d +"%A, %B %d %Y")
+  if [[ $(uname -s) == 'Darwin' ]]; then
+    DATE=$(date -v+1d +%a)
+  else
+    DATE=$(date -d "+1 day" +%a)
+  fi
 fi
 
 shopt -s nocasematch
@@ -53,54 +61,51 @@ if [[ -z $2 || $2 != '--short' ]]; then
     echo -e "\n$DATE\nForecast for $CITY\n===========================\nCURRENTLY: $CURTEMP\nHIGH: $HIGH\nLOW: $LOW"
     if [[ $CONDITIONS =~ "sunny" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
-            tput setaf 3
             echo -e "☀  $CONDITIONS\n";
         else
             echo -e "🌞  $CONDITIONS\n";
         fi
     elif [[ $CONDITIONS =~ "storm" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
-            tput setaf 4
             echo -e "☂  $CONDITIONS\n";
         else
             echo -e "☔  $CONDITIONS\n";
         fi
     elif [[ $CONDITIONS =~ "cloudy" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
-            tput setaf 6
             echo -e "☁  $CONDITIONS\n";
         else
             echo -e "⛅  $CONDITIONS\n";
         fi
+    elif [[ $CONDITIONS =~ "snow" ]]; then
+      echo -e "❄ $CONDITIONS\n";
     else
         echo -e "$CONDITIONS\n";
     fi
-    tput sgr0
 else
     if [[ $CONDITIONS =~ "sunny" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
-            tput setaf 3
             echo -e "☀ ";
         else
             echo -e "🌞 ";
         fi
     elif [[ $CONDITIONS =~ "storm" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
-            tput setaf 4
             echo -e "☂ ";
         else
             echo -e "☔ ";
         fi
     elif [[ $CONDITIONS =~ "cloudy" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
-            tput setaf 6
             echo -e "☁ ";
         else
             echo -e "⛅ ";
         fi
+    elif [[ $CONDITIONS =~ "snow" ]]; then
+      echo -e "❄ $CONDITIONS\n";
     else
         if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "( ͡° ͜ʖ ͡°)";
+            echo -e "😐";
         else
             echo -e "👾 ";
         fi
