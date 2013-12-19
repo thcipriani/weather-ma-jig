@@ -41,7 +41,7 @@ if [ -z "$DOWLN" ]; then
     TODAY=false
 fi
 
-FORECAST=$(echo "${DOWLN}" | sed -e "s/.*low=\"\(.*\)\" high=\"\(.*\)\" text=\"\([a-zA-Z ]*\)\" .*/\2ºF \1ºF \3/")
+FORECAST=$(echo "${DOWLN}" | sed -e "s/.*low=\"\(.*\)\" high=\"\(.*\)\" text=\"\([a-zA-Z \\\/_\|,]*\)\" .*/\2ºF \1ºF \3/")
 
 IFS=' ' read -r HIGH LOW CONDITIONS < <(echo $FORECAST)
 
@@ -85,29 +85,29 @@ if [[ -z $2 || $2 != '--short' ]]; then
 else
     if [[ $CONDITIONS =~ "sunny" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "☀ ";
+            echo -e "☀ $CONDITIONS";
         else
-            echo -e "🌞 ";
+            echo -e "🌞 $CONDITIONS";
         fi
     elif [[ $CONDITIONS =~ "storm" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "☂ ";
+            echo -e "☂ $CONDITIONS";
         else
-            echo -e "☔ ";
+            echo -e "☔ $CONDITIONS";
         fi
     elif [[ $CONDITIONS =~ "cloudy" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "☁ ";
+            echo -e "☁ $CONDITIONS";
         else
-            echo -e "⛅ ";
+            echo -e "⛅ $CONDITIONS";
         fi
     elif [[ $CONDITIONS =~ "snow" ]]; then
       echo -e "❄ $CONDITIONS\n";
     else
         if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "😐";
+            echo -e "✔ $CONDITIONS";
         else
-            echo -e "👾 ";
+            echo -e "👾 $CONDITIONS";
         fi
     fi
 fi
