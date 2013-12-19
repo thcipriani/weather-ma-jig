@@ -71,7 +71,7 @@ if [[ -z $2 || $2 != '--short' ]]; then
         else
             echo -e "☔  $CONDITIONS\n";
         fi
-    elif [[ $CONDITIONS =~ "cloudy" ]]; then
+    elif [[ $CONDITIONS =~ "cloud" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
             echo -e "☁  $CONDITIONS\n";
         else
