@@ -65,7 +65,7 @@ if [[ -z $2 || $2 != '--short' ]]; then
         else
             echo -e "🌞  $CONDITIONS\n";
         fi
-    elif [[ $CONDITIONS =~ "storm" ]]; then
+    elif [[ $CONDITIONS =~ "storm" ]] || [[ $CONDITIONS =~ "rain" ]] || [[ $CONDITIONS =~ "shower" ]] || [[ $CONDITIONS =~ "drizz" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
             echo -e "☂  $CONDITIONS\n";
         else
@@ -89,7 +89,7 @@ else
         else
             echo -e "🌞 $CONDITIONS";
         fi
-    elif [[ $CONDITIONS =~ "storm" ]]; then
+    elif [[ $CONDITIONS =~ "storm" ]] || [[ $CONDITIONS =~ "rain" ]] || [[ $CONDITIONS =~ "shower" ]] || [[ $CONDITIONS =~ "drizz" ]]; then
         if [[ $(uname -s) != 'Darwin' ]]; then
             echo -e "☂ $CONDITIONS";
         else
