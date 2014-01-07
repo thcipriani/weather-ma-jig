@@ -115,7 +115,7 @@ else
         if [[ $(uname -s) != 'Darwin' ]]; then
             echo -e "✔ $CONDITIONS";
         else
-            echo -e "👾 $CONDITIONS";
+            echo -e "🌏  $CONDITIONS";
         fi
     fi
 fi
