@@ -1,122 +1,142 @@
 #!/usr/bin/env bash
+yahoo_app_id="yGv9NWHV34GQ4FyA6.COP1blzCbYjHD3IzLJhlmK.b.4YpCWqv.D6LxDUodHiNyDGg--"
 
-if [ -z "$1" ]; then
-    echo -e "USAGE: weather-ma-jig place [--short]\n \
-            Example: weather-ma-jig Boulder"
-    exit 1
-fi
+show_help() {
+  cat<<USE
+  USAGE: 
+    weather-ma-jig <place>
+  OPTIONS:
+    --short|-s: short output
+  EXAMPLE: 
+    weather-ma-jig Boulder
+USE
+}
 
-# Put your app id here:
-APPID="yGv9NWHV34GQ4FyA6.COP1blzCbYjHD3IzLJhlmK.b.4YpCWqv.D6LxDUodHiNyDGg--"
-
-if [ -z $APPID ]; then
-    echo "get an app id from Yahoo! Here: https://developer.apps.yahoo.com/wsregapp/"
-    exit 1
-fi
-
-PLACE=$(echo $1 | sed 's/ /%20/')
-
-WOEID=$(curl -s "http://where.yahooapis.com/v1/places.q(${PLACE})?appid=${APPID}" | grep -i woeid | sed 's/.*<woeid>\(.*\)<\/woeid>.*/\1/')
-
-if [ -z $WOEID ]; then
-    echo "$1 ain't no place I ever heard of…"
-    exit 2
-fi
-
-DOW=$(date +%a)
-if [[ $(uname -s) == 'Darwin' ]]; then
-  TOM=$(date -v+1d +%a)
-else
-  TOM=$(date -d "+1 day" +%a)
-fi
-TODAY=true
-WEATHER=$(curl -s "http://weather.yahooapis.com/forecastrss?u=f&w=${WOEID}")
-CITY=$(echo "${WEATHER}" | grep -m 1 -i '<title>Yahoo! Weather' | sed 's/.*<title>Yahoo! Weather - \([^"]*\)<\/title>.*/\1/')
-CURTEMP=$(echo "${WEATHER}" | grep -m 1 -i '<yweather:condition' | sed -e 's/.*temp="\([0-9]*\)" .*/\1ºF/')
-
-DOWLN=$(echo "${WEATHER}" | grep -m 1 -i "<yweather:forecast day=\"${DOW}\"")
-
-if [ -z "$DOWLN" ]; then
-    DOWLN=$(echo "${WEATHER}" | grep -m 1 -i "<yweather:forecast day=\"${TOM}\"")
-    TODAY=false
-fi
-
-FORECAST=$(echo "${DOWLN}" | sed -e "s/.*low=\"\(.*\)\" high=\"\(.*\)\" text=\"\([a-zA-Z \\\/_\|,]*\)\" .*/\2ºF \1ºF \3/")
-
-IFS=' ' read -r HIGH LOW CONDITIONS < <(echo $FORECAST)
-
-if $TODAY; then
-    DATE=$(date +"%A, %B %d %Y")
-else
-  if [[ $(uname -s) == 'Darwin' ]]; then
-    DATE=$(date -v+1d +%a)
+setup_emoji() {
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    sun="🌞 "
+    snow="❄️ "
+    rain="☔ "
+    cloud="⛅ "
+    default="🌏 "
   else
-    DATE=$(date -d "+1 day" +%a)
+    sun="☀ "
+    snow="❄ "
+    rain="☂ "
+    cloud="☁ "
+    default="✔ "
   fi
-fi
+}
 
-shopt -s nocasematch
+check_woeid() {
+  woeid=$(curl -s "http://where.yahooapis.com/v1/places.q(${place_url})?appid=${yahoo_app_id}" | grep -i woeid | sed 's/.*<woeid>\(.*\)<\/woeid>.*/\1/')
 
-if [[ -z $2 || $2 != '--short' ]]; then
-    echo -e "\n$DATE\nForecast for $CITY\n===========================\nCURRENTLY: $CURTEMP\nHIGH: $HIGH\nLOW: $LOW"
-    if [[ $CONDITIONS =~ "sunny" ]]; then
-        if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "☀  $CONDITIONS\n";
-        else
-            echo -e "🌞  $CONDITIONS\n";
-        fi
-    elif [[ $CONDITIONS =~ "snow" ]]; then
-        if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "❄ $CONDITIONS\n";
-        else
-            echo -e "❄️  $CONDITIONS\n";
-        fi
-    elif [[ $CONDITIONS =~ "storm" ]] || [[ $CONDITIONS =~ "rain" ]] || [[ $CONDITIONS =~ "shower" ]] || [[ $CONDITIONS =~ "drizz" ]]; then
-        if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "☂  $CONDITIONS\n";
-        else
-            echo -e "☔  $CONDITIONS\n";
-        fi
-    elif [[ $CONDITIONS =~ "cloud" ]]; then
-        if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "☁  $CONDITIONS\n";
-        else
-            echo -e "⛅  $CONDITIONS\n";
-        fi
+  if [[ -z "$woeid" ]]; then
+      echo "$place_url ain't no place I ever heard of…"
+      exit 1
+  fi
+}
+
+set_dow() {
+  dow=$(date +%a)
+  if [[ $(uname -s) == "Darwin" ]]; then
+    next_dow="$(date -v+1d +%a)"
+  else
+    next_dow="$(date -d "+1 day" +%a)"
+  fi
+
+  today=1
+}
+
+get_forecast() {
+  weather_xml=$(curl -s "http://weather.yahooapis.com/forecastrss?u=f&w=${woeid}")
+  city=$(echo "${weather_xml}" | grep -m 1 -i '<title>Yahoo! Weather' | sed 's/.*<title>Yahoo! Weather - \([^"]*\)<\/title>.*/\1/')
+  cur_temp=$(echo "${weather_xml}" | grep -m 1 -i '<yweather:condition' | sed -e 's/.*temp="\([0-9]*\)" .*/\1ºF/')
+
+  dow_ln=$(echo "${weather_xml}" | grep -m 1 -i "<yweather:forecast day=\"${dow}\"")
+
+  if [ -z "$dow_ln" ]; then
+      dow_ln=$(echo "${weather_xml}" | grep -m 1 -i "<yweather:forecast day=\"${next_dow}\"")
+      today=0
+  fi
+
+  forecast=$(echo "${dow_ln}" | sed -e "s/.*low=\"\(.*\)\" high=\"\(.*\)\" text=\"\([a-zA-Z \\\/_\|,]*\)\" .*/\2ºF \1ºF \3/")
+}
+
+setup_output() {
+  IFS=' ' read -r high low conditions < <(echo $forecast)
+
+  if (( "$today" == 1 )); then
+      date_string=$(date +"%A, %B %d %Y")
+  else
+    if [[ $(uname -s) == 'Darwin' ]]; then
+      date_string=$(date -v+1d +"%A, %B %d %Y")
     else
-        echo -e "$CONDITIONS\n";
+      date_string=$(date -d "+1 day" +"%A, %B %d %Y")
     fi
+  fi
+}
+
+discern_emoji() {
+  case "$conditions" in
+    "sunny")
+      emoji="$sun"
+      ;;
+    "snow")
+      emoji="$snow"
+      ;;
+    storm|rain|shower|drizzle)
+      emoji="$rain"
+      ;;
+    cloud)
+      emoji="$cloud"
+      ;;
+    *)
+      emoji="$default"
+  esac
+}
+
+echo_output() {
+  if (( "$short" == 0 )); then
+    echo -e "\n$date\nForecast for $city\n===========================\nCURRENTLY: $cur_temp\nHIGH: $high\nLOW: $low"
+  fi
+
+  echo -e "$emoji  $conditions";
+}
+
+init() {
+  setup_emoji
+  check_woeid
+  set_dow
+  get_forecast
+  setup_output
+  discern_emoji
+  echo_output
+}
+
+main() {
+  short=0
+
+  while [ -n "$1" ]; do
+    case "$1" in
+      --short|-s)
+        short=1
+        ;;
+      *)
+        place="$1"
+        place_url="${1/ /%20}"
+    esac
+    shift
+  done
+
+  init
+}
+
+if (( "$#" == 0 )); then
+  show_help
+  exit 1
+elif [[ -z "$yahoo_app_id" ]]; then
+  echo "App id must be set"
 else
-    if [[ $CONDITIONS =~ "sunny" ]]; then
-        if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "☀ $CONDITIONS";
-        else
-            echo -e "🌞 $CONDITIONS";
-        fi
-    elif [[ $CONDITIONS =~ "snow" ]]; then
-        if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "❄ $CONDITIONS\n";
-        else
-            echo -e "❄️  $CONDITIONS\n";
-        fi
-    elif [[ $CONDITIONS =~ "storm" ]] || [[ $CONDITIONS =~ "rain" ]] || [[ $CONDITIONS =~ "shower" ]] || [[ $CONDITIONS =~ "drizz" ]]; then
-        if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "☂ $CONDITIONS";
-        else
-            echo -e "☔ $CONDITIONS";
-        fi
-    elif [[ $CONDITIONS =~ "cloudy" ]]; then
-        if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "☁ $CONDITIONS";
-        else
-            echo -e "⛅ $CONDITIONS";
-        fi
-    else
-        if [[ $(uname -s) != 'Darwin' ]]; then
-            echo -e "✔ $CONDITIONS";
-        else
-            echo -e "🌏  $CONDITIONS";
-        fi
-    fi
+  main "$@"
 fi
-exit 0
