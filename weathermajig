@@ -12,6 +12,11 @@ show_help() {
 USE
 }
 
+discern_city() {
+  place=$(curl -s ipinfo.io | grep city | awk '{print $2}' | tr -d '",')
+  place_url="${place/ /%20}"
+}
+
 setup_emoji() {
   if [[ "$(uname -s)" == "Darwin" ]]; then
     sun="🌞 "
@@ -32,7 +37,7 @@ check_woeid() {
   woeid=$(curl -s "http://where.yahooapis.com/v1/places.q(${place_url})?appid=${yahoo_app_id}" | grep -i woeid | sed 's/.*<woeid>\(.*\)<\/woeid>.*/\1/')
 
   if [[ -z "$woeid" ]]; then
-      printf "$place_url? Nope."
+      printf "$place? Nope.\n"
       exit 1
   fi
 }
@@ -123,6 +128,10 @@ main() {
       --short|-s)
         short=1
         ;;
+      --help|-h)
+        show_help
+        exit 0
+        ;;
       *)
         place="$1"
         place_url="${1/ /%20}"
@@ -130,13 +139,14 @@ main() {
     shift
   done
 
+  if [[ -z "$place" ]]; then
+    discern_city
+  fi
+
   init
 }
 
-if (( "$#" == 0 )); then
-  show_help
-  exit 1
-elif [[ -z "$yahoo_app_id" ]]; then
+if [[ -z "$yahoo_app_id" ]]; then
   printf "App id must be set"
 else
   main "$@"
