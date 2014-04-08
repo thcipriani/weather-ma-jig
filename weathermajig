@@ -20,11 +20,11 @@ setup_emoji() {
     cloud="⛅ "
     default="🌏 "
   else
-    sun="☀ "
-    snow="❄ "
-    rain="☂ "
-    cloud="☁ "
-    default="✔ "
+    sun="☀"
+    snow="❄"
+    rain="☂"
+    cloud="☁"
+    default="✔"
   fi
 }
 
@@ -32,7 +32,7 @@ check_woeid() {
   woeid=$(curl -s "http://where.yahooapis.com/v1/places.q(${place_url})?appid=${yahoo_app_id}" | grep -i woeid | sed 's/.*<woeid>\(.*\)<\/woeid>.*/\1/')
 
   if [[ -z "$woeid" ]]; then
-      echo "$place_url ain't no place I ever heard of…"
+      printf "$place_url? Nope."
       exit 1
   fi
 }
@@ -79,16 +79,16 @@ setup_output() {
 
 discern_emoji() {
   case "$conditions" in
-    "sunny")
+    Sun*)
       emoji="$sun"
       ;;
-    "snow")
+    Snow*)
       emoji="$snow"
       ;;
-    storm|rain|shower|drizzle)
+    Storm|Rain|Shower|Drizzle)
       emoji="$rain"
       ;;
-    cloud)
+    Cloud*)
       emoji="$cloud"
       ;;
     *)
@@ -98,10 +98,11 @@ discern_emoji() {
 
 echo_output() {
   if (( "$short" == 0 )); then
-    echo -e "\n$date\nForecast for $city\n===========================\nCURRENTLY: $cur_temp\nHIGH: $high\nLOW: $low"
+    printf "$date_string\nForecast for $city\n===========================\nCURRENTLY: $cur_temp\nHIGH: $high\nLOW: $low\n$emoji $conditions\n";
+    exit 0
   fi
 
-  echo -e "$emoji  $conditions";
+  printf "$emoji $conditions [$cur_temp]\n";
 }
 
 init() {
@@ -136,7 +137,7 @@ if (( "$#" == 0 )); then
   show_help
   exit 1
 elif [[ -z "$yahoo_app_id" ]]; then
-  echo "App id must be set"
+  printf "App id must be set"
 else
   main "$@"
 fi
