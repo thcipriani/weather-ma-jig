@@ -13,7 +13,13 @@ USE
 }
 
 discern_city() {
-  place=$(curl -s ipinfo.io | grep city | awk '{print $2}' | tr -d '",')
+  place_json=$(curl -s ipinfo.io)
+  multi_line=$(echo "$place_json" | wc -l)
+  if (( $multi_line > 1 )); then
+    place=$(echo "$place_json" | grep city | awk '{print $2}' | tr -d '",')
+  else
+    place=$(echo "$place_json" | sed -e 's/.*city":"\([[:alnum:]]*\)".*/\1/')
+  fi
   place_url="${place/ /%20}"
 }
 
