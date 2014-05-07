@@ -3,11 +3,11 @@ yahoo_app_id="yGv9NWHV34GQ4FyA6.COP1blzCbYjHD3IzLJhlmK.b.4YpCWqv.D6LxDUodHiNyDGg
 
 show_help() {
   cat<<USE
-  USAGE: 
+  USAGE:
     weather-ma-jig <place>
   OPTIONS:
     --short|-s: short output
-  EXAMPLE: 
+  EXAMPLE:
     weather-ma-jig Boulder
 USE
 }
@@ -109,8 +109,20 @@ discern_emoji() {
 
 echo_output() {
   if (( "$short" == 0 )); then
-    printf "$date_string\nForecast for $city\n===========================\nCURRENTLY: $cur_temp\nHIGH: $high\nLOW: $low\n$emoji $conditions\n";
+    cat <<WEATHER
+$date_string
+Forecast for $city
+===========================
+CURRENTLY: $cur_temp
+HIGH: $high
+LOW: $low
+$emoji $conditions
+WEATHER
     exit 0
+  fi
+
+  if (( ${#conditions} > 15 )); then
+    conditions="${conditions:0:15}…"
   fi
 
   printf "$emoji $conditions [$cur_temp]\n";
