@@ -90,16 +90,16 @@ setup_output() {
 
 discern_emoji() {
   case "$conditions" in
-    *Sun*)
+    *Sun*|*sun*)
       emoji="$sun"
       ;;
-    *Snow*)
+    *Snow*|*snow*)
       emoji="$snow"
       ;;
-    *Storm*|*Rain*|*Shower*|*Drizzle*)
+    *storm*|*Storm*|*Rain*|*rain*|*Shower*|*shower*|*Drizzle*|*drizzle*)
       emoji="$rain"
       ;;
-    *Cloud*)
+    *Cloud*|*cloud*)
       emoji="$cloud"
       ;;
     *)
