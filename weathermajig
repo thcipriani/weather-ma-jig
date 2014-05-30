@@ -121,8 +121,8 @@ WEATHER
     exit 0
   fi
 
-  if (( ${#conditions} > 15 )); then
-    conditions="${conditions:0:15}…"
+  if (( ${#conditions} > 10 )); then
+    conditions="${conditions:0:10}…"
   fi
 
   printf "$emoji $conditions [$cur_temp]\n";
