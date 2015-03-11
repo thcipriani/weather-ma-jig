@@ -1,6 +1,30 @@
 #!/usr/bin/env bash
-yahoo_app_id="yGv9NWHV34GQ4FyA6.COP1blzCbYjHD3IzLJhlmK.b.4YpCWqv.D6LxDUodHiNyDGg--"
 
+#   "ozone": 348.84,
+#   "pressure": 1027.55,
+#   "cloudCover": 0.08,
+#   "visibility": 10,
+#   "windBearing": 267,
+#   "windSpeed": 1.96,
+#   "humidity": 0.58,
+#   "dewPoint": 19.72,
+#   "apparentTemperatureMaxTime": 1425679200,
+#   "precipIntensityMax": 0,
+#   "precipIntensity": 0,
+#   "moonPhase": 0.53,
+#   "sunsetTime": 1425689897,
+#   "sunriseTime": 1425648477,
+#   "icon": "clear-day",
+#   "summary": "Clear throughout the day.",
+#   "time": 1425625200,
+#   "precipProbability": 0,
+#   "temperatureMin": 20.53,
+#   "temperatureMinTime": 1425636000,
+#   "temperatureMax": 49.22,
+#   "temperatureMaxTime": 1425679200,
+#   "apparentTemperatureMin": 16.06,
+#   "apparentTemperatureMinTime": 1425621600,
+#   "apparentTemperatureMax": 49.22
 show_help() {
   cat<<USE
   USAGE:
@@ -12,15 +36,88 @@ show_help() {
 USE
 }
 
-discern_city() {
-  place_json=$(curl -s ipinfo.io)
-  multi_line=$(echo "$place_json" | wc -l)
-  if (( $multi_line > 1 )); then
-    place=$(echo "$place_json" | grep city | awk '{print $2}' | tr -d '",')
-  else
-    place=$(echo "$place_json" | sed -e 's/.*city":"\([[:alnum:]]*\)".*/\1/')
+has?() {
+  command -v "$1" > /dev/null 2>&1
+}
+
+die() {
+  printf "[ERROR] %s\n" "$@" >&2
+  exit 1
+}
+
+# Simple calculator
+function calc() {
+    result="$(printf "scale=10;$*\n" | bc --mathlib | tr -d '\\\n')"
+    #                       └─ default (when `--mathlib` is used) is 20
+    #
+    if [[ "$result" == *.* ]]; then
+        # improve the output for decimal numbers
+        result=$(printf "$result" |
+          sed -e 's/^\./0./' -e 's/^-\./-0./' -e 's/0*$//;s/\.$//')
+    fi
+}
+
+check_deps() {
+  has? curl || die 'curl not found'
+  has? jq || die 'jq not found try: https://stedolan.github.io/jq/'
+  if (( current == 0 )); then
+    has? csvlook || die 'csvlook not found try: pip install csvkit'
   fi
-  place_url="${place/ /%20}"
+}
+
+get_conf() {
+  . "${XDG_CONFIG:=${HOME}/.config}/weathermajig"
+
+  test -n "$GOOGLE_KEY" || \
+    die "GOOGLE_KEY not found, check ${XDG_CONFIG:=${HOME}/.config}/weathermajig"
+
+  test -n "$DARK_SKY_KEY" || \
+    die "DARK_SKY_KEY not found, check ${XDG_CONFIG:=${HOME}/.config}/weathermajig"
+
+  if [[ -z "$loc" || -n "$place" ]]; then
+    get_lat_lng
+  fi
+}
+
+grep_forecast() {
+  local value=$1
+  shift
+  local day=-1
+
+  (( $# > 0 )) && \
+    local day=$1
+
+  (( day == -1 )) && \
+    return=$(printf "${forecast}\n" | jq -r ".currently .${value}") || \
+    return=$(printf "${forecast}\n" | jq -r ".daily .data[${day}] .${value}")
+}
+
+get_geo() {
+  location=$(curl -s \
+    "https://maps.googleapis.com/maps/api/geocode/json?address=${place}&key=${GOOGLE_KEY}" \
+    | jq '.results [0] .geometry .location')
+
+  if [[ -z "$location" ]]; then
+    die "Unable to determine location, check https://maps.googleapis.com/maps/api/geocode/json?address=${place}&key=${GOOGLE_KEY}"
+  fi
+
+  loc="$(echo "$location" | jq '.lat'),$(echo "$location" | jq '.lng')"
+}
+
+discern_geo() {
+  loc="$(curl -s ipinfo.io | jq -r '.loc')"
+
+  if [[ -z "$loc" ]]; then
+    die "Unable to determine lat./long. Check ipinfo.io"
+  fi
+}
+
+get_lat_lng() {
+  if [[ -z "$place" ]]; then
+    discern_geo
+  else
+    get_geo
+  fi
 }
 
 setup_emoji() {
@@ -39,57 +136,201 @@ setup_emoji() {
   fi
 }
 
-check_woeid() {
-  woeid=$(curl -s "http://where.yahooapis.com/v1/places.q(${place_url})?appid=${yahoo_app_id}" | grep -i woeid | sed 's/.*<woeid>\(.*\)<\/woeid>.*/\1/')
+get_current_forecast() {
+  grep_forecast time
+  time=$(date --date="@${return}" +'%a %D %r')
 
-  if [[ -z "$woeid" ]]; then
-      printf "$place? Nope.\n"
-      exit 1
-  fi
+  grep_forecast temperature
+  temp=$return
+
+  grep_forecast icon
+  icon=$return
+
+  grep_forecast summary
+  conditions=$return
+
+  grep_forecast temperatureMax 0
+  high=$return
+
+  grep_forecast temperatureMin 0
+  low=$return
+
+  grep_forecast sunriseTime 0
+  sunrise=$(date --date="@${return}" +'%a %D %r')
+
+  grep_forecast sunsetTime 0
+  sunset=$(date --date="@${return}" +'%a %D %r')
 }
 
-set_dow() {
-  dow=$(date +%a)
-  if [[ $(uname -s) == "Darwin" ]]; then
-    next_dow="$(date -v+1d +%a)"
-  else
-    next_dow="$(date -d "+1 day" +%a)"
-  fi
+get_extended_forecast() {
+  local sunrise_epoch
+  local sunset_epoch
 
-  today=1
+  for i in $(seq 0 ${count}); do
+    grep_forecast icon $i
+    icon=$return
+
+    discern_emoji
+
+    grep_forecast time $i
+    time_arr[$i]="${emoji} $(date --date=@${return} +'%a %D')"
+
+    grep_forecast summary $i
+    conditions_arr[$i]="${return}"
+
+    if (( summary == 0 )); then
+      grep_forecast temperatureMax $i
+      high_arr[$i]=$return
+
+      grep_forecast temperatureMin $i
+      low_arr[$i]=$return
+
+      grep_forecast precipProbability $i
+      calc "${return} * 100"
+      precip_arr[$i]=$result
+
+      grep_forecast humidity $i
+      calc "${return} * 100"
+      humid_arr[$i]=$result
+
+      grep_forecast dewPoint $1
+      dew_arr[$i]=$return
+
+      grep_forecast sunriseTime $i
+      sunrise_epoch=$return
+
+      grep_forecast sunsetTime $i
+      sunset_epoch=$return
+
+      sunrise_arr[$i]=$(date --date="@${sunrise_epoch}" +'%r')
+      sunset_arr[$i]=$(date --date="@${sunset_epoch}" +'%r')
+    fi
+  done
 }
 
 get_forecast() {
-  weather_xml=$(curl -s "http://weather.yahooapis.com/forecastrss?u=f&w=${woeid}")
-  city=$(echo "${weather_xml}" | grep -m 1 -i '<title>Yahoo! Weather' | sed 's/.*<title>Yahoo! Weather - \([^"]*\)<\/title>.*/\1/')
-  cur_temp=$(echo "${weather_xml}" | grep -m 1 -i '<yweather:condition' | sed -e 's/.*temp="\([0-9]*\)" .*/\1ºF/')
+  forecast=$(curl -s "https://api.forecast.io/forecast/${DARK_SKY_KEY}/${loc}")
 
-  dow_ln=$(echo "${weather_xml}" | grep -m 1 -i "<yweather:forecast day=\"${dow}\"")
-
-  if [ -z "$dow_ln" ]; then
-      dow_ln=$(echo "${weather_xml}" | grep -m 1 -i "<yweather:forecast day=\"${next_dow}\"")
-      today=0
+  if [[ -z "$forecast" ]]; then
+    die "Unable to get forecast, checkout https://api.forecast.io/forecast/${DARK_SKY_KEY}/${loc}"
   fi
 
-  forecast=$(echo "${dow_ln}" | sed -e "s/.*low=\"\(.*\)\" high=\"\(.*\)\" text=\"\([a-zA-Z \\\/_\|,]*\)\" .*/\2ºF \1ºF \3/")
+  (( current == 0 )) && get_extended_forecast
+  (( current == 1 )) && get_current_forecast
+}
+
+setup_short_output() {
+  # $1 = emoji
+  # $2 = conditions
+  # $3 = temp
+  read -r -d '' output_template <<'EOF'
+%s %s [%s°F]\n
+EOF
+}
+
+setup_long_output() {
+  # Current output long
+  #   $1 = date
+  #   $2 = location
+  #   $3 = current
+  #   $4 = high
+  #   $5 = low
+  #   $6 = sunrise
+  #   $7 = sunset
+  #   $8 = emoji
+  #   $9 = conditions
+  read -r -d '' output_template <<'EOF'
+%s
+Forcast for %s
+---
+Currently: %s°F
+High: %s°F
+Low: %s°F
+Sunrise: %s
+Sunset: %s
+%s %s\n
+EOF
+}
+
+setup_current_output() {
+  (( short == 1 )) && setup_short_output
+  (( short == 0 )) && setup_long_output
+
+  discern_emoji
+  echo_current_output
+}
+
+setup_extended_output() {
+  local date_row='Date'
+  local cond_row='Summary'
+  local condition
+
+  if (( summary == 0 )); then
+    local high_row='High'
+    local low_row='Low'
+    local precip_row='Precip. Prob.'
+    local humid_row='Humidity'
+    local dew_row='Dew Point'
+    local sunrise_row='Sunrise'
+    local sunset_row='Sunset'
+  fi
+
+  for i in $(seq 0 ${count}); do
+
+    condition=${conditions_arr[$i]}
+    if (( summary == 0 )); then
+      if (( ${#condition} > 20 )); then
+        condition="${condition:0:20}…"
+      fi
+
+      high_row="${high_row}~${high_arr[$i]}°F"
+      low_row="${low_row}~${low_arr[$i]}°F"
+      precip_row="${precip_row}~${precip_arr[$i]}%"
+      humid_row="${humid_row}~${humid_arr[$i]}%"
+      dew_row="${dew_row}~${dew_arr[$i]}°F"
+      sunrise_row="${sunrise_row}~${sunrise_arr[$i]}"
+      sunset_row="${sunset_row}~${sunset_arr[$i]}"
+    fi
+
+    date_row="${date_row}~${time_arr[$i]}"
+    cond_row="${cond_row}~${condition}"
+  done
+
+  if [[ -n "$place" ]]; then
+    for=${place//+/ }
+  else
+    for=${loc}
+  fi
+
+  printf "Forecast for %s\n" "$for"
+
+  if (( summary == 0 )); then
+    printf "%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n" \
+      "${date_row}" \
+      "${high_row}" \
+      "${low_row}"  \
+      "${precip_row}"  \
+      "${humid_row}"  \
+      "${dew_row}" \
+      "${sunrise_row}" \
+      "${sunset_row}" \
+      "${cond_row}" \
+      | csvlook -d~
+  else
+    printf "%s\n%s\n" \
+      "${date_row}" \
+      "${cond_row}" \
+      | csvlook -d~
+  fi
 }
 
 setup_output() {
-  IFS=' ' read -r high low conditions < <(echo $forecast)
-
-  if (( "$today" == 1 )); then
-      date_string=$(date +"%A, %B %d %Y")
-  else
-    if [[ $(uname -s) == 'Darwin' ]]; then
-      date_string=$(date -v+1d +"%A, %B %d %Y")
-    else
-      date_string=$(date -d "+1 day" +"%A, %B %d %Y")
-    fi
-  fi
+  (( current == 1 )) && setup_current_output
+  (( current == 0 )) && setup_extended_output
 }
 
 discern_emoji() {
-  case "$conditions" in
+  case "$icon" in
     *Sun*|*sun*)
       emoji="$sun"
       ;;
@@ -107,65 +348,144 @@ discern_emoji() {
   esac
 }
 
-echo_output() {
-  if (( "$short" == 0 )); then
-    cat <<WEATHER
-$date_string
-Forecast for $city
-===========================
-CURRENTLY: $cur_temp
-HIGH: $high
-LOW: $low
-$emoji $conditions
-WEATHER
-    exit 0
+echo_long_output() {
+  if [[ -n "$place" ]]; then
+    for=${place//+/ }
+  else
+    for=${loc}
   fi
 
+  printf "$output_template" \
+    "$time" \
+    "$loc" \
+    "$temp" \
+    "$high" \
+    "$low" \
+    "$sunrise" \
+    "$sunset" \
+    "$emoji" \
+    "$conditions"
+}
+
+echo_short_output() {
   if (( ${#conditions} > 10 )); then
     conditions="${conditions:0:10}…"
   fi
 
-  printf "$emoji $conditions [$cur_temp]\n";
+  printf "$output_template" \
+    "$emoji" "$conditions" "$temp"
+}
+
+echo_current_output() {
+  (( short == 0 )) && echo_long_output
+  (( short == 1 )) && echo_short_output
+}
+
+manage_overrides() {
+  (( summary == 1 )) && \
+  (( count == 0 )) && \
+    count=1
+
+  # extended + short cannot co-exist
+  (( short == 1 )) && \
+  (( current == 0 )) && \
+    short=0
+
+  # summary + short cannot co-exist
+  (( short == 1 )) && \
+  (( summary == 1 )) && \
+    short=0
+
+  # Can only get the summary of a day
+  (( summary == 1 )) && \
+  (( current == 1 )) && \
+    current=0
+
+  if (( current == 0 )); then
+    (( count-- ))
+
+    if (( summary == 0 )); then
+      declare -A time_arr
+      declare -A high_arr
+      declare -A low_arr
+      declare -A precip_arr
+      declare -A humid_arr
+      declare -A dew_arr
+      declare -A visible_arr
+      declare -A cloud_arr
+      declare -A pressure_arr
+      declare -A ozone_arr
+      declare -A sunrise_arr
+      declare -A sunset_arr
+      declare -A moon_arr
+    fi
+
+    declare -A conditions_arr
+  fi
 }
 
 init() {
+  manage_overrides
+  check_deps
+  get_conf
   setup_emoji
-  check_woeid
-  set_dow
   get_forecast
   setup_output
-  discern_emoji
-  echo_output
+}
+
+check_count() {
+  local check
+  local digit
+  digit=$1
+  check=$(printf "%s\n" "$1" | tr -d [[:xdigit:]])
+
+  if [[ -n "$check" ]]; then
+    die "--extended takes a numeric argument, e.g. -e 4"
+  fi
+
+  if (( digit > 7 )); then
+    die "Can't do more than 7 day forecast, bub"
+  fi
 }
 
 main() {
   short=0
+  current=1
+  summary=0
+  place=""
 
   while [ -n "$1" ]; do
     case "$1" in
       --short|-s)
         short=1
         ;;
+      --extended|-e)
+        current=0
+        shift
+        count=$1
+        check_count $count
+        ;;
       --help|-h)
         show_help
         exit 0
         ;;
+      --summary|-s)
+        summary=1
+        ;;
+      --)
+        shift
+        place="$@"
+        break
+        ;;
       *)
-        place="$1"
-        place_url="${1/ /%20}"
+        place="${place}$1 "
     esac
     shift
   done
 
-  if [[ -z "$place" ]]; then
-    discern_city
-  fi
+  place="${place// /+}"
 
   init
 }
 
-if [[ -z "$yahoo_app_id" ]]; then
-  printf "App id must be set"
-else
-  main "$@"
-fi
+main "$@"
