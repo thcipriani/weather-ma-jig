@@ -7,11 +7,30 @@ insired by this thread on reddit: http://www.reddit.com/r/commandline/comments/1
 
 Instructions:
 ---
-* Get an app id from yahoo: https://developer.apps.yahoo.com/wsregapp/
-* clone this repo: <code>git clone git://github.com/thcipriani/weather-ma-jig</code>
-* put your app id in the weather-ma-jig script on line 10 (the variable APPID)
-* make weather-ma-jig executable <code>chmod a+x weather-ma-jig/weather-ma-jig</code>
-* copy the weather-ma-jig/weather-ma-jig file someplace in your system path (like ~/bin): <code>cp weather-ma-jig/weather-ma-jig ~/bin/</code>
+* get a [forcast.io](https://developer.forecast.io/) api key
+* clone this directory
+* ensure you have python2 and pip setup
+* use pip to install requirements.txt
+
+    sudo pip install PyYAML
+    sudo pip install geopy
+    sudo pip install requests
+    sudo pip install simplejson
+    sudo pip install wsgiref
+
+* install this thing
+
+    sudo python2 setup.py install
+
+* Create a `~/.weathermajig` yaml config file like
+
+```yaml
+---
+# Dark sky api key
+api_key: 123456789notakey
+cache_dir: /tmp/weathermajig.cache
+```
+
 * enjoy the weather
 
 Screenshot:
