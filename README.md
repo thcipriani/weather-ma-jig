@@ -12,15 +12,15 @@ Instructions:
 * ensure you have python2 and pip setup
 * use pip to install requirements.txt
 
-    sudo pip install PyYAML
-    sudo pip install geopy
-    sudo pip install requests
-    sudo pip install simplejson
-    sudo pip install wsgiref
+```
+sudo pip -r requirements.txt
+```
 
 * install this thing
 
-    sudo python2 setup.py install
+```
+sudo python2 setup.py install
+```
 
 * Create a `~/.weathermajig` yaml config file like
 
@@ -32,6 +32,22 @@ cache_dir: /tmp/weathermajig.cache
 ```
 
 * enjoy the weather
+
+```
+$ weathermajig "Boulder"
+☁ Mostly Clo… [47°F]
+
+$ weathermajig -v "Boulder"
+
+Thu 04/09/15 07:40:34 PM
+Forecast for Boulder
+---
+CURRENTLY: 47.1°F
+HIGH: 54.75°F
+LOW: 36.54°F
+☁ Mostly Cloudy
+
+```
 
 Screenshot:
 ---
