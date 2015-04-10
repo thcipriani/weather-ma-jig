@@ -10,7 +10,7 @@ from weathermajig import output
 def main():
     conf = config.Config()
     cache.check(conf)
-    lat, lng = geo.get_lat(conf.get('place'))
+    lat, lng = geo.get_loc(conf)
     api_key = conf.get('api_key')
 
     wthr = weather.Weather(api_key=api_key, lat=lat, lng=lng)
