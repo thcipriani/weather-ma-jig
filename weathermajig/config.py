@@ -38,7 +38,7 @@ class Config:
         return yaml.load(file(self._config_loc, 'r'))
 
     def get_key(self):
-        return '_'.join(['%s-%s' % (k, v) for (k, v) in self._args.iteritems()])
+        return '_'.join(['%s-%s' % (k, v) for (k, v) in self._args.iteritems() if k != 'api_key'])
 
     def get(self, key, default=None):
         val = self._args.get(key)
